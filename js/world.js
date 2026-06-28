@@ -1,13 +1,14 @@
 import * as THREE from 'three';
-import { initRenderer, getParentSize, observeResize, isMobile } from './graphics-utils.js?v=1';
-import { generateCity } from './city-generator.js?v=1';
+import { initRenderer, getParentSize, observeResize, createSkyGradient } from './graphics-utils.js?v=2';
+import { generateCity } from './city-generator.js?v=2';
 import {
   createPlayerMesh, createCarMesh, createWaypointMarker,
-  spawnTrafficCars, collideAABB, clampToCity
-} from './entities.js?v=1';
-import { InputManager } from './input.js?v=1';
-import { MISSIONS, getMissionTarget, checkMissionComplete } from './missions.js?v=1';
-import { updateHUD, toast, showMissionComplete } from './hud.js?v=1';
+  spawnTrafficCars, collideAABB, clampToCity,
+  animatePlayerWalk, lerpAngle
+} from './entities.js?v=2';
+import { InputManager } from './input.js?v=2';
+import { MISSIONS, getMissionTarget, checkMissionComplete } from './missions.js?v=2';
+import { updateHUD, toast, showMissionComplete } from './hud.js?v=2';
 
 const CAR_COLORS = [0xff3c78, 0x00e5ff, 0xffd54f, 0x69f0ae, 0x7c4dff, 0xff6b35];
 
@@ -20,22 +21,23 @@ export class World {
     this.mobile = gpu.mobile;
 
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(0x1a1030);
-    this.scene.fog = new THREE.Fog(0x1a1030, 80, 220);
+    this.scene.background = createSkyGradient();
+    this.scene.fog = new THREE.FogExp2(0x12081c, 0.008);
 
     this.camera = new THREE.PerspectiveCamera(55, 1, 0.5, 400);
     this.clock = new THREE.Clock();
     this.input = new InputManager();
+    this.input.bindLook(canvas);
 
     this.state = {
-      x: 0, z: 8, rot: 0,
+      x: 0, z: 12, rot: 0,
       health: 100, cash: 500, wanted: 0,
       inVehicle: false, vehicleSpeed: 0,
       missionIndex: 0, activeMission: MISSIONS[0]
     };
 
-    this._camYaw = 0;
-    this._camPitch = 0.35;
+    this._camYaw = Math.PI;
+    this._camPitch = 0.38;
     this._camDist = 9;
 
     this._buildLights();
@@ -76,18 +78,21 @@ export class World {
   }
 
   _buildLights() {
-    this.scene.add(new THREE.HemisphereLight(0x8899cc, 0x1a1028, 0.65));
-    const sun = new THREE.DirectionalLight(0xffeedd, 1.1);
+    this.scene.add(new THREE.HemisphereLight(0x99aacc, 0x1a0a20, 0.55));
+    const sun = new THREE.DirectionalLight(0xffeedd, 0.85);
     sun.position.set(60, 90, 40);
     if (!this.mobile) {
       sun.castShadow = true;
       sun.shadow.mapSize.set(1024, 1024);
-      sun.shadow.camera.left = -80;
-      sun.shadow.camera.right = 80;
-      sun.shadow.camera.top = 80;
-      sun.shadow.camera.bottom = -80;
+      sun.shadow.camera.left = -100;
+      sun.shadow.camera.right = 100;
+      sun.shadow.camera.top = 100;
+      sun.shadow.camera.bottom = -100;
     }
     this.scene.add(sun);
+    const moon = new THREE.DirectionalLight(0x6688cc, 0.35);
+    moon.position.set(-40, 60, -50);
+    this.scene.add(moon);
   }
 
   _setWaypoint() {
@@ -195,30 +200,44 @@ export class World {
     const sprint = this.input.isSprinting();
     const speed = sprint ? 11 : 6.5;
 
-    if (Math.abs(move.x) > 0.05 || Math.abs(move.y) > 0.05) {
-      this._camYaw = Math.atan2(move.x, move.y);
-      this.state.rot = this._camYaw;
+    const look = this.input.getLookDelta();
+    if (Math.abs(look.x) > 0.001 || Math.abs(look.y) > 0.001) {
+      this._camYaw -= look.x * 2.8;
+      this._camPitch = THREE.MathUtils.clamp(this._camPitch - look.y * 2.2, 0.18, 0.72);
     }
 
-    const look = this.input.look;
-    if (Math.abs(look.x) > 0.08 || Math.abs(look.y) > 0.08) {
-      this._camYaw -= look.x * 0.04;
-      this._camPitch = THREE.MathUtils.clamp(this._camPitch - look.y * 0.02, 0.15, 0.7);
-    }
+    const moving = Math.abs(move.x) > 0.05 || Math.abs(move.y) > 0.05;
+    let moveSpeed = 0;
 
-    let nx = this.state.x + Math.sin(this.state.rot) * move.y * speed * dt;
-    let nz = this.state.z + Math.cos(this.state.rot) * move.y * speed * dt;
-    nx += Math.cos(this.state.rot) * move.x * speed * dt;
-    nz -= Math.sin(this.state.rot) * move.x * speed * dt;
+    if (moving) {
+      const fwdX = Math.sin(this._camYaw);
+      const fwdZ = Math.cos(this._camYaw);
+      const rightX = Math.cos(this._camYaw);
+      const rightZ = -Math.sin(this._camYaw);
 
-    const clamped = clampToCity(nx, nz, this.city.extent);
-    if (!collideAABB(clamped.x, clamped.z, 0.5, this.city.colliders)) {
-      this.state.x = clamped.x;
-      this.state.z = clamped.z;
+      const mx = fwdX * move.y + rightX * move.x;
+      const mz = fwdZ * move.y + rightZ * move.x;
+      const len = Math.hypot(mx, mz) || 1;
+      const nx = mx / len;
+      const nz = mz / len;
+
+      const moveAngle = Math.atan2(nx, nz);
+      this.state.rot = lerpAngle(this.state.rot, moveAngle, 0.18);
+
+      let px = this.state.x + nx * speed * dt;
+      let pz = this.state.z + nz * speed * dt;
+
+      const clamped = clampToCity(px, pz, this.city.extent);
+      if (!collideAABB(clamped.x, clamped.z, 0.5, this.city.colliders)) {
+        this.state.x = clamped.x;
+        this.state.z = clamped.z;
+        moveSpeed = speed;
+      }
     }
 
     this.player.position.set(this.state.x, 0, this.state.z);
     this.player.rotation.y = this.state.rot;
+    animatePlayerWalk(this.player, moving && moveSpeed > 0, moveSpeed, dt);
   }
 
   _updateDriving(dt) {
@@ -226,6 +245,11 @@ export class World {
     const accel = this.input.isSprinting() ? 28 : 18;
     const maxSpeed = this.input.isSprinting() ? 42 : 32;
     const friction = 8;
+
+    const look = this.input.getLookDelta();
+    if (Math.abs(look.x) > 0.001) {
+      this._camYaw -= look.x * 2.2;
+    }
 
     if (move.y < -0.1) this.state.vehicleSpeed += accel * dt;
     else if (move.y > 0.1) this.state.vehicleSpeed -= accel * dt;
@@ -256,7 +280,6 @@ export class World {
 
     this.vehicle.position.set(this.state.x, 0, this.state.z);
     this.vehicle.rotation.y = this.state.rot;
-    this._camYaw = this.state.rot;
   }
 
   _updateTraffic(dt) {
@@ -276,9 +299,9 @@ export class World {
     const target = this.state.inVehicle ? this.vehicle.position : this.player.position;
     const cx = target.x - Math.sin(this._camYaw) * this._camDist * Math.cos(this._camPitch);
     const cz = target.z - Math.cos(this._camYaw) * this._camDist * Math.cos(this._camPitch);
-    const cy = 2.5 + Math.sin(this._camPitch) * this._camDist;
-    this.camera.position.lerp(new THREE.Vector3(cx, cy, cz), 0.12);
-    this.camera.lookAt(target.x, 1.4, target.z);
+    const cy = 2.8 + Math.sin(this._camPitch) * this._camDist;
+    this.camera.position.lerp(new THREE.Vector3(cx, cy, cz), 0.14);
+    this.camera.lookAt(target.x, 1.6, target.z);
   }
 
   _updateMission() {

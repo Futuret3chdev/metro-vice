@@ -6,6 +6,9 @@ export class InputManager {
     this.sprint = false;
     this.action = false;
     this._actionPulse = false;
+    this._mouseDragging = false;
+    this._mouseLook = { x: 0, y: 0 };
+    this._canvas = null;
 
     window.addEventListener('keydown', (e) => {
       this.keys[e.code] = true;
@@ -15,6 +18,27 @@ export class InputManager {
 
     this._setupJoystick('joy-move', (x, y) => { this.move.x = x; this.move.y = y; });
     this._setupJoystick('joy-look', (x, y) => { this.look.x = x; this.look.y = y; });
+  }
+
+  bindLook(canvas) {
+    if (!canvas || this._canvas) return;
+    this._canvas = canvas;
+
+    canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
+    canvas.addEventListener('mousedown', (e) => {
+      if (e.button === 0 || e.button === 2) this._mouseDragging = true;
+    });
+
+    window.addEventListener('mouseup', () => {
+      this._mouseDragging = false;
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (!this._mouseDragging) return;
+      this._mouseLook.x += e.movementX;
+      this._mouseLook.y += e.movementY;
+    });
   }
 
   _setupJoystick(id, cb) {
@@ -73,6 +97,23 @@ export class InputManager {
     if (this.keys.KeyS || this.keys.ArrowDown) y += 1;
     const len = Math.hypot(x, y);
     if (len > 1) { x /= len; y /= len; }
+    return { x, y };
+  }
+
+  getLookDelta() {
+    let x = this.look.x;
+    let y = this.look.y;
+
+    if (Math.abs(this._mouseLook.x) > 0.01 || Math.abs(this._mouseLook.y) > 0.01) {
+      x += this._mouseLook.x * 0.004;
+      y += this._mouseLook.y * 0.003;
+      this._mouseLook.x = 0;
+      this._mouseLook.y = 0;
+    }
+
+    if (this.keys.KeyQ) x -= 0.04;
+    if (this.keys.KeyR && !this._actionPulse) x += 0.04;
+
     return { x, y };
   }
 

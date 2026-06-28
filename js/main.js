@@ -1,5 +1,5 @@
-import { World } from './world.js?v=1';
-import { toast } from './hud.js?v=1';
+import { World } from './world.js?v=2';
+import { toast } from './hud.js?v=2';
 
 let world = null;
 let rafId = null;
