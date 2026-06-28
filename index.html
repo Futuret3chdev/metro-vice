@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#0a0612">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Metro Vice">
+  <title>Metro Vice — Open City</title>
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Orbitron:wght@600;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css?v=1">
+</head>
+<body>
+  <div id="app">
+    <section id="title-screen" class="screen active">
+      <div class="title-bg"></div>
+      <div class="title-content">
+        <p class="title-tag">Open World Action</p>
+        <h1 class="title-logo">METRO VICE</h1>
+        <p class="title-sub">Steal cars · Roam the city · Run missions · Escape the heat</p>
+        <button class="btn-primary" id="btn-play" type="button">Enter the City</button>
+        <p class="title-hint desktop-hint">WASD walk · Shift sprint · <kbd>E</kbd> enter car · <kbd>M</kbd> mission</p>
+        <p class="title-hint mobile-hint">Joystick to move · tap buttons to drive &amp; interact</p>
+      </div>
+      <footer class="title-credit">v1 prototype — built to beat the classics</footer>
+    </section>
+
+    <section id="game-screen" class="screen">
+      <div class="game-canvas-wrap">
+        <canvas id="game-canvas"></canvas>
+      </div>
+
+      <header class="hud-top">
+        <div class="hud-cash">$<span id="hud-cash">500</span></div>
+        <div class="hud-health">
+          <div id="health-bar"></div>
+        </div>
+        <div class="hud-wanted" id="hud-wanted" aria-label="Wanted level"></div>
+      </header>
+
+      <div class="hud-mission" id="hud-mission">
+        <span class="mission-label">OBJECTIVE</span>
+        <span id="mission-text">Explore Metro Vice</span>
+      </div>
+
+      <div class="hud-mode" id="hud-mode">ON FOOT</div>
+
+      <div id="mobile-controls" class="mobile-controls">
+        <div id="joy-move" class="joy-zone joy-left"><div class="joy-knob"></div></div>
+        <div id="joy-look" class="joy-zone joy-right"><div class="joy-knob"></div></div>
+      </div>
+
+      <nav id="mobile-nav" class="mobile-nav" aria-label="Game actions">
+        <button type="button" id="mob-action">🚗 Drive</button>
+        <button type="button" id="mob-mission">📍 Mission</button>
+        <button type="button" id="mob-sprint">⚡ Sprint</button>
+        <button type="button" id="mob-menu">☰ Menu</button>
+      </nav>
+
+      <div id="toast"></div>
+    </section>
+  </div>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+    }
+  }
+  </script>
+  <script type="module" src="/js/main.js?v=1"></script>
+</body>
+</html>

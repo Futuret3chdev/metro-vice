@@ -1,0 +1,12 @@
+{
+  "name": "Metro Vice",
+  "short_name": "MetroVice",
+  "description": "Open-world city action — drive, roam, run missions",
+  "start_url": "/",
+  "display": "fullscreen",
+  "background_color": "#0a0612",
+  "theme_color": "#0a0612",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}
